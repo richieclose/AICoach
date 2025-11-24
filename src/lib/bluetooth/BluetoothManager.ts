@@ -27,7 +27,13 @@ export interface BluetoothDeviceState {
 
 interface BluetoothStore extends BluetoothDeviceState {
     controlPoint: BluetoothRemoteGATTCharacteristic | null;
-    connect: () => Promise<void>;
+    isBikeConnected: boolean;
+    isHRConnected: boolean;
+    bikeDeviceName: string | null;
+    hrDeviceName: string | null;
+
+    connectBike: () => Promise<void>;
+    connectHeartRate: () => Promise<void>;
     disconnect: () => void;
     toggleSimulation: () => void;
     setTargetPower: (watts: number) => Promise<void>;
@@ -37,8 +43,13 @@ interface BluetoothStore extends BluetoothDeviceState {
 let simulationInterval: NodeJS.Timeout | null = null;
 
 export const useBluetoothStore = create<BluetoothStore>((set, get) => ({
-    isConnected: false,
-    deviceName: null,
+    isConnected: false, // Deprecated, use specific flags
+    isBikeConnected: false,
+    isHRConnected: false,
+    deviceName: null, // Deprecated
+    bikeDeviceName: null,
+    hrDeviceName: null,
+
     batteryLevel: null,
     heartRate: null,
     power: null,
@@ -46,11 +57,11 @@ export const useBluetoothStore = create<BluetoothStore>((set, get) => ({
     isSimulating: false,
     controlPoint: null,
 
-    connect: async () => {
+    connectBike: async () => {
         const { isSimulating } = get();
         if (isSimulating) {
             console.log('Starting Simulation Mode');
-            set({ isConnected: true, deviceName: 'Simulated Bike' });
+            set({ isBikeConnected: true, bikeDeviceName: 'Simulated Bike', isConnected: true });
             startSimulation(set);
             return;
         }
@@ -60,10 +71,9 @@ export const useBluetoothStore = create<BluetoothStore>((set, get) => ({
                 filters: [
                     { services: [SERVICE_UUIDS.FITNESS_MACHINE] },
                     { services: [SERVICE_UUIDS.CYCLING_POWER] },
-                    { services: [SERVICE_UUIDS.HEART_RATE] },
                 ],
                 optionalServices: [
-                    SERVICE_UUIDS.HEART_RATE,
+                    SERVICE_UUIDS.HEART_RATE, // In case bike also does HR
                     SERVICE_UUIDS.CYCLING_POWER,
                     SERVICE_UUIDS.FITNESS_MACHINE,
                 ],
@@ -74,19 +84,51 @@ export const useBluetoothStore = create<BluetoothStore>((set, get) => ({
             const server = await device.gatt?.connect();
             if (!server) throw new Error('Could not connect to GATT server');
 
-            set({ isConnected: true, deviceName: device.name || 'Unknown Device' });
+            set({ isBikeConnected: true, bikeDeviceName: device.name || 'Bike', isConnected: true });
 
             // Setup Services
-            await setupHeartRate(server, set);
             await setupCyclingPower(server, set);
             await setupFTMS(server, set);
 
+            // Try to setup HR from bike too, just in case
+            await setupHeartRate(server, set);
+
             device.addEventListener('gattserverdisconnected', () => {
-                set({ isConnected: false, deviceName: null, controlPoint: null });
+                set({ isBikeConnected: false, bikeDeviceName: null, controlPoint: null });
             });
 
         } catch (error) {
-            console.error('Bluetooth connection failed:', error);
+            console.error('Bike connection failed:', error);
+        }
+    },
+
+    connectHeartRate: async () => {
+        try {
+            const device = await navigator.bluetooth.requestDevice({
+                filters: [
+                    { services: [SERVICE_UUIDS.HEART_RATE] },
+                ],
+                optionalServices: [
+                    SERVICE_UUIDS.HEART_RATE,
+                ],
+            });
+
+            if (!device) return;
+
+            const server = await device.gatt?.connect();
+            if (!server) throw new Error('Could not connect to GATT server');
+
+            set({ isHRConnected: true, hrDeviceName: device.name || 'HR Monitor' });
+
+            // Setup Services
+            await setupHeartRate(server, set);
+
+            device.addEventListener('gattserverdisconnected', () => {
+                set({ isHRConnected: false, hrDeviceName: null, heartRate: null });
+            });
+
+        } catch (error) {
+            console.error('HR Monitor connection failed:', error);
         }
     },
 
@@ -94,12 +136,25 @@ export const useBluetoothStore = create<BluetoothStore>((set, get) => ({
         const { isSimulating } = get();
         if (isSimulating) {
             if (simulationInterval) clearInterval(simulationInterval);
-            set({ isConnected: false, deviceName: null });
+            set({ isConnected: false, isBikeConnected: false, isHRConnected: false, deviceName: null, bikeDeviceName: null, hrDeviceName: null });
             return;
         }
-        // Real device disconnect logic would go here if we stored the device reference
-        // For now, just reset state
-        set({ isConnected: false, deviceName: null, controlPoint: null });
+        // Ideally we would disconnect specific devices if we stored their references.
+        // For now, just reset state. The browser handles actual disconnects often, or we rely on user to disconnect via browser UI?
+        // Actually, without storing 'device' object, we can't call device.gatt.disconnect().
+        // But for this prototype, resetting state is the "soft" disconnect.
+        set({
+            isConnected: false,
+            isBikeConnected: false,
+            isHRConnected: false,
+            deviceName: null,
+            bikeDeviceName: null,
+            hrDeviceName: null,
+            controlPoint: null,
+            power: null,
+            cadence: null,
+            heartRate: null
+        });
     },
 
     toggleSimulation: () => {
@@ -111,15 +166,11 @@ export const useBluetoothStore = create<BluetoothStore>((set, get) => ({
         console.log(`Setting target power to ${watts}W`);
 
         if (isSimulating) {
-            // In simulation, we just log it. 
-            // Ideally, the simulated power would trend towards this target.
             return;
         }
 
         if (controlPoint) {
             try {
-                // FTMS Set Target Power (Opcode 0x05)
-                // Format: Opcode (1 byte) + Power (2 bytes, sint16)
                 const buffer = new ArrayBuffer(3);
                 const view = new DataView(buffer);
                 view.setUint8(0, 0x05); // Opcode: Set Target Power
@@ -216,14 +267,43 @@ async function setupFTMS(server: BluetoothRemoteGATTServer, set: any) {
         const service = await server.getPrimaryService(SERVICE_UUIDS.FITNESS_MACHINE);
         const controlPoint = await service.getCharacteristic(CHARACTERISTIC_UUIDS.FTMS_CONTROL_POINT);
 
+        // Enable Indications to receive response codes
+        await controlPoint.startNotifications();
+
+        controlPoint.addEventListener('characteristicvaluechanged', (event: any) => {
+            const value = event.target.value;
+            const opcode = value.getUint8(0);
+
+            if (opcode === 0x80) { // Response Code
+                const requestOpcode = value.getUint8(1);
+                const resultCode = value.getUint8(2);
+
+                let resultStr = 'Unknown';
+                switch (resultCode) {
+                    case 0x01: resultStr = 'Success'; break;
+                    case 0x02: resultStr = 'Op Code not supported'; break;
+                    case 0x03: resultStr = 'Invalid Parameter'; break;
+                    case 0x04: resultStr = 'Operation Failed'; break;
+                    case 0x05: resultStr = 'Control Not Permitted'; break;
+                }
+
+                console.log(`FTMS Control Point Response: Request 0x${requestOpcode.toString(16)} -> ${resultStr} (0x${resultCode.toString(16)})`);
+            }
+        });
+
         // Request Control (Opcode 0x00)
-        const buffer = new ArrayBuffer(1);
-        const view = new DataView(buffer);
-        view.setUint8(0, 0x00);
-        await controlPoint.writeValue(buffer);
+        console.log('Requesting FTMS Control...');
+        const requestControl = new Uint8Array([0x00]);
+        await controlPoint.writeValue(requestControl);
+
+        // Send Start or Resume (Opcode 0x07)
+        // Some bikes require this to start accepting target power commands
+        console.log('Sending Start/Resume command...');
+        const startCommand = new Uint8Array([0x07]);
+        await controlPoint.writeValue(startCommand);
 
         set({ controlPoint });
-        console.log('FTMS Control Point connected and control requested');
+        console.log('FTMS Control Point setup complete');
 
         // Subscribe to Indoor Bike Data for cadence and other metrics
         try {
@@ -235,10 +315,8 @@ async function setupFTMS(server: BluetoothRemoteGATTServer, set: any) {
                 const flags = value.getUint16(0, true);
                 let offset = 2;
 
-                // Instantaneous Speed (if present, Bit 0)
-                if (flags & (1 << 0)) {
-                    offset += 2;
-                }
+                // Instantaneous Speed is always present (2 bytes)
+                offset += 2;
 
                 // Average Speed (if present, Bit 1)
                 if (flags & (1 << 1)) {

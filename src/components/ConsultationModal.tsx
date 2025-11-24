@@ -1,7 +1,9 @@
-'use client';
-
 import React, { useState } from 'react';
-import { MessageSquare, X, Send } from 'lucide-react';
+import { MessageSquare, X, Send, Dumbbell, Mic, MicOff } from 'lucide-react';
+import { useWorkoutStore } from '@/lib/workout/workoutStore';
+import { useVoiceInput } from '@/hooks/useVoiceInput';
+import { useVoiceOutput } from '@/hooks/useVoiceOutput';
+import { useUserStore } from '@/lib/user/userStore';
 
 interface ConsultationModalProps {
     isOpen: boolean;
@@ -9,29 +11,72 @@ interface ConsultationModalProps {
 }
 
 export function ConsultationModal({ isOpen, onClose }: ConsultationModalProps) {
+    const { speak, cancel: cancelSpeech } = useVoiceOutput();
+
+    const handleClose = () => {
+        cancelSpeech();
+        onClose();
+    };
     const [history, setHistory] = useState('');
     const [response, setResponse] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const { startWorkout } = useWorkoutStore();
+    const { isListening, transcript, startListening, stopListening, resetTranscript, isSupported: isVoiceInputSupported, error: voiceError } = useVoiceInput();
+    const { name, ftp } = useUserStore();
+
+    // Update history when transcript changes
+    React.useEffect(() => {
+        if (transcript) {
+            setHistory(prev => {
+                // Avoid duplicating if transcript appends
+                // Simple approach: replace current input with transcript if listening
+                return transcript;
+            });
+        }
+    }, [transcript]);
 
     const handleConsult = async () => {
         if (!history.trim()) return;
 
         setIsLoading(true);
         try {
+            // Check if user wants to create a workout
+            const isWorkoutRequest = history.toLowerCase().includes('create') ||
+                history.toLowerCase().includes('workout') ||
+                history.toLowerCase().includes('generate');
+
+            const action = isWorkoutRequest ? 'generate_workout' : 'consultation';
+            const payload = isWorkoutRequest ? { userRequest: history, ftp } : { history, userName: name };
+
             const res = await fetch('/api/coach', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    action: 'consultation',
-                    data: { history }
+                    action,
+                    data: payload
                 })
             });
-            const data = await res.json();
-            setResponse(data.message);
 
-            // Speak response
-            const utterance = new SpeechSynthesisUtterance(data.message);
-            window.speechSynthesis.speak(utterance);
+            if (!res.ok) {
+                throw new Error('Failed to fetch from Coach API');
+            }
+
+            const data = await res.json();
+
+            if (isWorkoutRequest) {
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                // If it's a workout, start it!
+                startWorkout(data);
+                onClose();
+                setHistory('');
+                setResponse('');
+            } else {
+                setResponse(data.message);
+                // Speak response
+                speak(data.message);
+            }
 
         } catch (error) {
             console.error('Consultation failed:', error);
@@ -48,9 +93,9 @@ export function ConsultationModal({ isOpen, onClose }: ConsultationModalProps) {
                 <div className="p-4 border-b border-white/10 flex justify-between items-center bg-muted/20">
                     <div className="flex items-center gap-2">
                         <MessageSquare className="w-5 h-5 text-primary" />
-                        <h3 className="font-semibold">Pre-Workout Consultation</h3>
+                        <h3 className="font-semibold">Coach Aero</h3>
                     </div>
-                    <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+                    <button onClick={handleClose} className="text-muted-foreground hover:text-foreground">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
@@ -59,14 +104,41 @@ export function ConsultationModal({ isOpen, onClose }: ConsultationModalProps) {
                     {!response ? (
                         <>
                             <p className="text-muted-foreground text-sm">
-                                Tell Coach Aero about your recent training or how you're feeling today.
+                                Ask for advice or say "Create a [type] workout" to generate a custom session.
                             </p>
                             <textarea
                                 className="w-full bg-background border border-white/10 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary outline-none min-h-[100px]"
-                                placeholder="e.g., I'm feeling a bit tired from yesterday's ride, but I want to do some light cardio."
+                                placeholder="e.g., Create a 45 minute tempo workout"
                                 value={history}
                                 onChange={(e) => setHistory(e.target.value)}
                             />
+                            {isListening && (
+                                <p className="text-xs text-primary animate-pulse">
+                                    Listening... Speak now
+                                </p>
+                            )}
+                            {/* Show voice error if any (e.g. no-speech) */}
+                            {!isListening && voiceError && (
+                                <p className="text-xs text-red-400">
+                                    {voiceError}
+                                </p>
+                            )}
+
+                            {isVoiceInputSupported && (
+                                <div className="flex justify-end">
+                                    <button
+                                        onClick={isListening ? stopListening : startListening}
+                                        className={`p-2 rounded-full transition-all ${isListening
+                                            ? 'bg-red-500/20 text-red-500 animate-pulse'
+                                            : 'bg-secondary/10 text-secondary hover:bg-secondary/20'
+                                            }`}
+                                        title={isListening ? 'Stop Listening' : 'Start Voice Input'}
+                                    >
+                                        {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                                    </button>
+                                </div>
+                            )}
+
                             <button
                                 onClick={handleConsult}
                                 disabled={isLoading || !history}
@@ -74,7 +146,8 @@ export function ConsultationModal({ isOpen, onClose }: ConsultationModalProps) {
                             >
                                 {isLoading ? 'Thinking...' : (
                                     <>
-                                        <Send className="w-4 h-4" /> Get Advice
+                                        {history.toLowerCase().includes('create') ? <Dumbbell className="w-4 h-4" /> : <Send className="w-4 h-4" />}
+                                        {history.toLowerCase().includes('create') ? 'Generate Workout' : 'Get Advice'}
                                     </>
                                 )}
                             </button>
@@ -86,10 +159,10 @@ export function ConsultationModal({ isOpen, onClose }: ConsultationModalProps) {
                                 <p className="italic">{response}</p>
                             </div>
                             <button
-                                onClick={onClose}
+                                onClick={handleClose}
                                 className="w-full bg-secondary hover:bg-secondary/90 text-secondary-foreground py-2 rounded-xl font-medium transition-colors"
                             >
-                                Let's Ride!
+                                Close
                             </button>
                         </div>
                     )}
