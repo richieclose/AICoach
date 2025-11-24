@@ -7,6 +7,9 @@ const scope = "streaming user-read-email user-read-private playlist-modify-publi
 
 export const authOptions: NextAuthOptions = {
     adapter: PrismaAdapter(prisma),
+    session: {
+        strategy: "jwt",
+    },
     providers: [
         SpotifyProvider({
             clientId: process.env.SPOTIFY_CLIENT_ID || "",

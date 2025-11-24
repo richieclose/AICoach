@@ -97,7 +97,7 @@ export async function importTCXWorkouts(workouts: {
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user || !session.user.email) {
-        return { success: 0, failed: 0, error: 'Unauthorized' };
+        return { success: 0, failed: 0, error: 'Unauthorized: No valid session found' };
     }
 
     const user = await prisma.user.findUnique({

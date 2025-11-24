@@ -66,9 +66,21 @@ export function parseTCX(tcxContent: string): TCXParseResult {
 
             const cadence = parseInt(getText(tp, 'Cadence') || '0');
 
-            // Power is tricky, usually in Extensions -> TPX -> Watts
-            // We'll search for 'Watts' tag anywhere inside the trackpoint
-            const watts = parseInt(getText(tp, 'Watts') || getText(tp, 'ns3:Watts') || '0');
+            // Power is usually in Extensions -> TPX -> Watts
+            // We try multiple ways to find it to be robust against different TCX versions/exporters
+            let watts = 0;
+            const ns3 = 'http://www.garmin.com/xmlschemas/ActivityExtension/v2';
+
+            // Try standard namespace method
+            const wattsElements = tp.getElementsByTagNameNS(ns3, 'Watts');
+            if (wattsElements.length > 0) {
+                watts = parseInt(wattsElements[0].textContent || '0');
+            } else {
+                // Fallback: try finding 'Watts' or 'ns3:Watts' by tag name directly
+                const w1 = getText(tp, 'Watts');
+                const w2 = getText(tp, 'ns3:Watts');
+                watts = parseInt(w1 || w2 || '0');
+            }
 
             dataPoints.push({
                 timestamp,

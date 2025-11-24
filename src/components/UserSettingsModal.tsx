@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { X, User, Calendar, Heart, Zap, Gauge } from 'lucide-react';
 import { useUserStore } from '@/lib/user/userStore';
 import { updateUserProfile } from '@/app/actions/user';
-import { useSession } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 
 interface UserSettingsModalProps {
     isOpen: boolean;
@@ -171,6 +171,15 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                     >
                         {isSaving ? 'Saving...' : 'Save Profile'}
                     </button>
+
+                    {session && (
+                        <button
+                            onClick={() => signOut()}
+                            className="w-full bg-red-500/10 hover:bg-red-500/20 text-red-500 font-medium py-3 rounded-xl transition-colors mt-2"
+                        >
+                            Sign Out
+                        </button>
+                    )}
                 </div>
             </div>
         </div>

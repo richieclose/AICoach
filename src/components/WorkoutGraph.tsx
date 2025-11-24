@@ -38,11 +38,11 @@ export function WorkoutGraph({ className }: { className?: string }) {
     // SVG Dimensions - logical coords, not pixels
     const width = 800;
     const height = 200;
-    const padding = 20;
+    const topPadding = 30; // Reserve space for labels
 
     // Scales
     const xScale = (time: number) => (time / totalDuration) * width;
-    const yScale = (power: number) => height - (power / maxPower) * height;
+    const yScale = (power: number) => height - (power / maxPower) * (height - topPadding);
 
     // Helper to format duration
     const formatDuration = (seconds: number) => {
@@ -116,13 +116,13 @@ export function WorkoutGraph({ className }: { className?: string }) {
                             </rect>
 
                             {/* Labels if block is wide enough */}
-                            {w > 40 && (
+                            {w > 20 && (
                                 <>
                                     <text
                                         x={x + w / 2}
-                                        y={y - 15}
+                                        y={y - 12}
                                         fill="white"
-                                        fontSize="12"
+                                        fontSize="10"
                                         fontWeight="bold"
                                         textAnchor="middle"
                                         opacity="0.9"
@@ -132,9 +132,9 @@ export function WorkoutGraph({ className }: { className?: string }) {
                                     </text>
                                     <text
                                         x={x + w / 2}
-                                        y={y - 3}
+                                        y={y - 2}
                                         fill="white"
-                                        fontSize="10"
+                                        fontSize="8"
                                         textAnchor="middle"
                                         opacity="0.7"
                                         style={{ textShadow: '0px 1px 2px rgba(0,0,0,0.5)' }}

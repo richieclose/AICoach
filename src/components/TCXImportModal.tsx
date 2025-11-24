@@ -12,7 +12,7 @@ interface TCXImportModalProps {
 export function TCXImportModal({ isOpen, onClose, onImportComplete }: TCXImportModalProps) {
     const [files, setFiles] = useState<File[]>([]);
     const [isImporting, setIsImporting] = useState(false);
-    const [result, setResult] = useState<{ success: number; failed: number } | null>(null);
+    const [result, setResult] = useState<{ success: number; failed: number; error?: string } | null>(null);
     const [errors, setErrors] = useState<string[]>([]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -148,6 +148,12 @@ export function TCXImportModal({ isOpen, onClose, onImportComplete }: TCXImportM
                                     <div className="flex items-center gap-2">
                                         <XCircle className="w-5 h-5 text-red-500" />
                                         <p className="text-sm text-muted-foreground">{result.failed} failed to import</p>
+                                    </div>
+                                )}
+                                {result.error && (
+                                    <div className="flex items-center gap-2">
+                                        <XCircle className="w-5 h-5 text-red-500" />
+                                        <p className="text-sm text-red-500">{result.error}</p>
                                     </div>
                                 )}
                             </div>
