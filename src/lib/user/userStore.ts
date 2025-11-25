@@ -13,6 +13,7 @@ interface UserState {
     setFtp: (ftp: number) => void;
     setWeight: (weight: number) => void;
     syncWithDb: () => Promise<void>;
+    clearUserData: () => void;
 }
 
 export const useUserStore = create<UserState>()(
@@ -28,6 +29,14 @@ export const useUserStore = create<UserState>()(
             setMaxHr: (maxHr) => set({ maxHr }),
             setFtp: (ftp) => set({ ftp }),
             setWeight: (weight) => set({ weight }),
+
+            clearUserData: () => set({
+                name: '',
+                dob: '',
+                maxHr: 190,
+                ftp: 200,
+                weight: 75
+            }),
 
             syncWithDb: async () => {
                 try {

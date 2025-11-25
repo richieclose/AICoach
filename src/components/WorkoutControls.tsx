@@ -60,20 +60,7 @@ export function WorkoutControls() {
                     Start Default Workout
                 </button>
 
-                <input
-                    type="file"
-                    accept=".zwo"
-                    ref={fileInputRef}
-                    onChange={handleFileUpload}
-                    className="hidden"
-                />
-                <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center gap-2 bg-secondary hover:bg-secondary/90 text-secondary-foreground px-8 py-4 rounded-full text-lg font-bold transition-all hover:scale-105 shadow-lg"
-                >
-                    <Upload className="w-6 h-6" />
-                    Import ZWO
-                </button>
+
             </div>
         );
     }
