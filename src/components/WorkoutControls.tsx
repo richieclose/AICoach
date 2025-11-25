@@ -4,10 +4,14 @@ import React, { useRef } from 'react';
 import { useWorkoutStore } from '@/lib/workout/workoutStore';
 import { useUserStore } from '@/lib/user/userStore';
 import { useMusicStore } from '@/store/musicStore';
-import { Play, Pause, Square, SkipForward, Upload } from 'lucide-react';
+import { Play, Pause, Square, SkipForward, Upload, MessageSquare } from 'lucide-react';
 import { parseZwo } from '@/lib/workout/zwoParser';
 
-export function WorkoutControls() {
+interface WorkoutControlsProps {
+    onAskCoach?: () => void;
+}
+
+export function WorkoutControls({ onAskCoach }: WorkoutControlsProps) {
     const { isActive, isPaused, startWorkout, pauseWorkout, resumeWorkout, stopWorkout, skipInterval } = useWorkoutStore();
     const { ftp } = useUserStore();
     const { startPlaylist } = useMusicStore();
@@ -60,7 +64,15 @@ export function WorkoutControls() {
                     Start Default Workout
                 </button>
 
-
+                {onAskCoach && (
+                    <button
+                        onClick={onAskCoach}
+                        className="flex items-center gap-2 bg-secondary hover:bg-secondary/90 text-secondary-foreground px-8 py-4 rounded-full text-lg font-bold transition-all hover:scale-105 shadow-lg shadow-secondary/25"
+                    >
+                        <MessageSquare className="w-6 h-6" />
+                        Ask Coach
+                    </button>
+                )}
             </div>
         );
     }

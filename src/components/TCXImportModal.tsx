@@ -15,6 +15,38 @@ export function TCXImportModal({ isOpen, onClose, onImportComplete }: TCXImportM
     const [result, setResult] = useState<{ success: number; failed: number; error?: string } | null>(null);
     const [errors, setErrors] = useState<string[]>([]);
 
+    const [isDragging, setIsDragging] = useState(false);
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            const droppedFiles = Array.from(e.dataTransfer.files).filter(
+                file => file.name.toLowerCase().endsWith('.tcx')
+            );
+
+            if (droppedFiles.length > 0) {
+                setFiles(prev => [...prev, ...droppedFiles]);
+                setResult(null);
+                setErrors([]);
+            }
+        }
+    };
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) {
             setFiles(Array.from(e.target.files));
@@ -100,7 +132,15 @@ export function TCXImportModal({ isOpen, onClose, onImportComplete }: TCXImportM
                                 Import workout history from Garmin, Wahoo, or other platforms.
                             </p>
 
-                            <div className="border-2 border-dashed border-white/10 rounded-xl p-6 text-center hover:border-primary/50 transition-colors">
+                            <div
+                                onDragOver={handleDragOver}
+                                onDragLeave={handleDragLeave}
+                                onDrop={handleDrop}
+                                className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors ${isDragging
+                                        ? 'border-primary bg-primary/10'
+                                        : 'border-white/10 hover:border-primary/50'
+                                    }`}
+                            >
                                 <input
                                     type="file"
                                     accept=".tcx"
@@ -110,7 +150,7 @@ export function TCXImportModal({ isOpen, onClose, onImportComplete }: TCXImportM
                                     id="tcx-upload"
                                 />
                                 <label htmlFor="tcx-upload" className="cursor-pointer">
-                                    <FileText className="w-12 h-12 mx-auto mb-2 text-muted-foreground" />
+                                    <FileText className={`w-12 h-12 mx-auto mb-2 ${isDragging ? 'text-primary' : 'text-muted-foreground'}`} />
                                     <p className="text-sm font-medium">Click to select TCX files</p>
                                     <p className="text-xs text-muted-foreground mt-1">or drag and drop</p>
                                 </label>

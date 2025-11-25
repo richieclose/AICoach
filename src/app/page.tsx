@@ -123,13 +123,7 @@ export default function Home() {
             <Music className="w-3 h-3" />
             Music
           </button>
-          <button
-            onClick={() => setIsConsultationOpen(true)}
-            className="flex items-center gap-2 bg-secondary/10 hover:bg-secondary/20 text-secondary px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
-          >
-            <MessageSquare className="w-3 h-3" />
-            Ask Coach
-          </button>
+
           <Link
             href="/history"
             className="flex items-center gap-2 bg-secondary/10 hover:bg-secondary/20 text-secondary px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
@@ -293,7 +287,7 @@ export default function Home() {
 
             {/* Controls */}
             <div className="shrink-0">
-              <WorkoutControls />
+              <WorkoutControls onAskCoach={() => setIsConsultationOpen(true)} />
             </div>
 
           </div>
@@ -306,7 +300,7 @@ export default function Home() {
               <p className="text-2xl font-bold text-foreground">Ready to ride?</p>
               <p className="text-sm opacity-60">Import a workout or ask Coach Aero to create one.</p>
             </div>
-            <WorkoutControls />
+            <WorkoutControls onAskCoach={() => setIsConsultationOpen(true)} />
           </div>
         )}
       </div>
