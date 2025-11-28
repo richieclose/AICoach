@@ -1,4 +1,5 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app) and developed in Google Antigravity. Its a demonstration of the cabability of coding assistants and with the objective of zero code written by the developer.
+The application - AI Coach - is an AI-powered cycling training application that provides personalised, adaptive training structured workouts. The platform works with smart trainers and power meters for indoor and outdoor training. 
 
 ## Getting Started
 
